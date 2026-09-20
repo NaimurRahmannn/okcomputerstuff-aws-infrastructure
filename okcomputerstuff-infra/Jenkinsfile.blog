@@ -85,7 +85,7 @@ pipeline {
                         def shellQuote = { value ->
                             "'${value.toString().replace("'", "'\\\"'\\\"'")}'"
                         }
-                        sh 'base64 -w 0 infra/deploy-app.sh > deploy-app.b64'
+                        sh 'base64 -w 0 okcomputerstuff-infra/infra/deploy-app.sh > deploy-app.b64'
                         def encodedScript = readFile('deploy-app.b64').trim()
                         def command = """
                             echo ${shellQuote(encodedScript)} | base64 -d > /tmp/okcomputerstuff-deploy-app.sh
