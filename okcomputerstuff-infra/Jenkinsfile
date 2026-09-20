@@ -20,6 +20,18 @@ pipeline {
     }
 
     stages {
+        stage('Verify Build Tools') {
+            steps {
+                sh '''
+                    set -eu
+                    command -v terraform
+                    terraform version
+                    command -v aws
+                    command -v git
+                '''
+            }
+        }
+
         stage('Terraform Init') {
             steps {
                 dir('infra') {
