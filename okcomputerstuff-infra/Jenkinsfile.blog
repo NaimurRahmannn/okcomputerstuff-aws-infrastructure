@@ -101,10 +101,11 @@ pipeline {
                         sh """
                             set -eu
                                                         python3 -m json.tool ssm-parameters.json >/dev/null
+                                                        aws --version
+                                                        aws sts get-caller-identity --region '${AWS_REGION}' --output json >/dev/null
                             command_id=\$(aws ssm send-command \\
                                                             --region '${AWS_REGION}' \\
                                                             --document-name AWS-RunShellScript \\
-                                                            --comment 'Deploy okcomputerstuff blog application' \\
                                                             --instance-ids ${shellQuote(env.APP_INSTANCE_ID)} \\
                                                             --parameters file://ssm-parameters.json \\
                               --query 'Command.CommandId' \\
