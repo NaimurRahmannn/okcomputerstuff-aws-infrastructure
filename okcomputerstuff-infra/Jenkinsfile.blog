@@ -96,33 +96,43 @@ pipeline {
                             chmod 700 /tmp/okcomputerstuff-deploy-app.sh
                             /tmp/okcomputerstuff-deploy-app.sh ${shellQuote(env.APP_REPO_URL)} ${shellQuote(env.APP_BRANCH)} ${shellQuote(params.APP_COMMIT)} ${shellQuote(secretArns.RDS_SECRET_ARN)} ${shellQuote(secretArns.APP_SECRET_ARN)}
                         """.stripIndent().trim()
-                                                def request = [
-                                                        DocumentName: 'AWS-RunShellScript',
-                                                        InstanceIds: [env.APP_INSTANCE_ID],
-                                                        Parameters: [commands: [command]]
-                                                ]
-                                                writeFile file: 'ssm-command.json', text: groovy.json.JsonOutput.toJson(request)
+                        def request = [
+                            DocumentName: 'AWS-RunShellScript',
+                            InstanceIds: [env.APP_INSTANCE_ID],
+                            Parameters: [commands: [command]]
+                        ]
+                        writeFile file: 'ssm-command.json', text: groovy.json.JsonOutput.toJson(request)
 
-                        sh """
+                        sh '''
                             set -eu
-                                                        python3 -m json.tool ssm-command.json >/dev/null
-                                                        aws --version
-                                                        aws sts get-caller-identity --region '${AWS_REGION}' --output json >/dev/null
-                            command_id=\$(aws ssm send-command \\
-                                                            --cli-input-json file://ssm-command.json \\
-                              --query 'Command.CommandId' \\
+                            AWS_CLI_ROOT="$WORKSPACE/.aws-cli"
+                            AWS_CLI_BIN_DIR="$WORKSPACE/.aws-bin"
+                            rm -rf "$WORKSPACE/aws" "$WORKSPACE/awscliv2.zip" "$AWS_CLI_ROOT" "$AWS_CLI_BIN_DIR"
+                            wget -q "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -O "$WORKSPACE/awscliv2.zip"
+                            unzip -q "$WORKSPACE/awscliv2.zip" -d "$WORKSPACE"
+                            "$WORKSPACE/aws/install" \
+                              --install-dir "$AWS_CLI_ROOT" \
+                              --bin-dir "$AWS_CLI_BIN_DIR" \
+                              --update >/dev/null
+                            AWS_CLI_BIN="$AWS_CLI_BIN_DIR/aws"
+                            python3 -m json.tool ssm-command.json >/dev/null
+                            "$AWS_CLI_BIN" --version
+                            "$AWS_CLI_BIN" sts get-caller-identity --region "$AWS_REGION" --output json >/dev/null
+                            command_id=$("$AWS_CLI_BIN" ssm send-command \
+                              --cli-input-json file://ssm-command.json \
+                              --query 'Command.CommandId' \
                               --output text)
-                            aws ssm wait command-executed \\
-                                                            --region '${AWS_REGION}' \\
-                              --command-id "\$command_id" \\
-                              --instance-id ${shellQuote(env.APP_INSTANCE_ID)}
-                            aws ssm get-command-invocation \\
-                                                            --region '${AWS_REGION}' \\
-                              --command-id "\$command_id" \\
-                              --instance-id ${shellQuote(env.APP_INSTANCE_ID)} \\
-                              --query 'StandardOutputContent' \\
+                            "$AWS_CLI_BIN" ssm wait command-executed \
+                              --region "$AWS_REGION" \
+                              --command-id "$command_id" \
+                              --instance-id "$APP_INSTANCE_ID"
+                            "$AWS_CLI_BIN" ssm get-command-invocation \
+                              --region "$AWS_REGION" \
+                              --command-id "$command_id" \
+                              --instance-id "$APP_INSTANCE_ID" \
+                              --query 'StandardOutputContent' \
                               --output text
-                        """
+                        '''
                     }
                 }
             }
