@@ -96,18 +96,20 @@ pipeline {
                             chmod 700 /tmp/okcomputerstuff-deploy-app.sh
                             /tmp/okcomputerstuff-deploy-app.sh ${shellQuote(env.APP_REPO_URL)} ${shellQuote(env.APP_BRANCH)} ${shellQuote(params.APP_COMMIT)} ${shellQuote(secretArns.RDS_SECRET_ARN)} ${shellQuote(secretArns.APP_SECRET_ARN)}
                         """.stripIndent().trim()
-                                                writeFile file: 'ssm-parameters.json', text: groovy.json.JsonOutput.toJson([commands: [command]])
+                                                def request = [
+                                                        DocumentName: 'AWS-RunShellScript',
+                                                        InstanceIds: [env.APP_INSTANCE_ID],
+                                                        Parameters: [commands: [command]]
+                                                ]
+                                                writeFile file: 'ssm-command.json', text: groovy.json.JsonOutput.toJson(request)
 
                         sh """
                             set -eu
-                                                        python3 -m json.tool ssm-parameters.json >/dev/null
+                                                        python3 -m json.tool ssm-command.json >/dev/null
                                                         aws --version
                                                         aws sts get-caller-identity --region '${AWS_REGION}' --output json >/dev/null
                             command_id=\$(aws ssm send-command \\
-                                                            --region '${AWS_REGION}' \\
-                                                            --document-name AWS-RunShellScript \\
-                                                            --instance-ids ${shellQuote(env.APP_INSTANCE_ID)} \\
-                                                            --parameters file://ssm-parameters.json \\
+                                                            --cli-input-json file://ssm-command.json \\
                               --query 'Command.CommandId' \\
                               --output text)
                             aws ssm wait command-executed \\
