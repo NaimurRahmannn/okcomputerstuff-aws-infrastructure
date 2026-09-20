@@ -17,6 +17,7 @@ pipeline {
     environment {
         AWS_DEFAULT_REGION = 'ap-southeast-1'
         TF_IN_AUTOMATION = 'true'
+        AWS_CREDENTIALS_ID = 'okcomputerstuff-aws'
     }
 
     stages {
@@ -34,8 +35,10 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                dir('okcomputerstuff-infra/infra') {
-                    sh 'terraform init -input=false'
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: env.AWS_CREDENTIALS_ID]]) {
+                    dir('okcomputerstuff-infra/infra') {
+                        sh 'terraform init -input=false'
+                    }
                 }
             }
         }
@@ -52,8 +55,10 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 withCredentials([file(credentialsId: 'okcomputerstuff-prod-tfvars', variable: 'TFVARS_FILE')]) {
-                    dir('okcomputerstuff-infra/infra') {
-                        sh 'terraform plan -input=false -var-file="$TFVARS_FILE" -out=tfplan.tfplan'
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: env.AWS_CREDENTIALS_ID]]) {
+                        dir('okcomputerstuff-infra/infra') {
+                            sh 'terraform plan -input=false -var-file="$TFVARS_FILE" -out=tfplan.tfplan'
+                        }
                     }
                 }
             }
@@ -66,8 +71,10 @@ pipeline {
                 }
             }
             steps {
-                dir('okcomputerstuff-infra/infra') {
-                    sh 'terraform apply -input=false tfplan.tfplan'
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: env.AWS_CREDENTIALS_ID]]) {
+                    dir('okcomputerstuff-infra/infra') {
+                        sh 'terraform apply -input=false tfplan.tfplan'
+                    }
                 }
             }
         }
