@@ -76,7 +76,11 @@ pipeline {
                         if (!(env.APP_INSTANCE_ID ==~ /i-[0-9a-f]{8,17}/)) {
                             error('Configured APP_INSTANCE_ID must be a valid EC2 instance ID')
                         }
-                        [RDS_SECRET_ARN: env.RDS_SECRET_ARN, APP_SECRET_ARN: env.APP_SECRET_ARN].each { name, value ->
+                        def secretArns = [
+                            RDS_SECRET_ARN: env.RDS_SECRET_ARN.trim(),
+                            APP_SECRET_ARN: env.APP_SECRET_ARN.trim()
+                        ]
+                        secretArns.each { name, value ->
                             if (!(value ==~ 'arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:[A-Za-z0-9/_+=.@-]+')) {
                                 error("Configured ${name} must be a valid Secrets Manager ARN")
                             }
@@ -90,7 +94,7 @@ pipeline {
                         def command = """
                             echo ${shellQuote(encodedScript)} | base64 -d > /tmp/okcomputerstuff-deploy-app.sh
                             chmod 700 /tmp/okcomputerstuff-deploy-app.sh
-                            /tmp/okcomputerstuff-deploy-app.sh ${shellQuote(env.APP_REPO_URL)} ${shellQuote(env.APP_BRANCH)} ${shellQuote(params.APP_COMMIT)} ${shellQuote(env.RDS_SECRET_ARN)} ${shellQuote(env.APP_SECRET_ARN)}
+                            /tmp/okcomputerstuff-deploy-app.sh ${shellQuote(env.APP_REPO_URL)} ${shellQuote(env.APP_BRANCH)} ${shellQuote(params.APP_COMMIT)} ${shellQuote(secretArns.RDS_SECRET_ARN)} ${shellQuote(secretArns.APP_SECRET_ARN)}
                         """.stripIndent().trim()
                         def request = [
                             DocumentName: 'AWS-RunShellScript',
