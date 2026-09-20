@@ -20,6 +20,7 @@ pipeline {
         AWS_CREDENTIALS_ID = 'okcomputerstuff-aws'
         APP_REPO_URL = 'https://github.com/NaimurRahmannn/okcomputerstuff.git'
         APP_BRANCH = 'main'
+        RDS_PORT = '3306'
     }
 
     stages {
@@ -69,12 +70,19 @@ pipeline {
                 withCredentials([
                     [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: env.AWS_CREDENTIALS_ID],
                     string(credentialsId: 'okcomputerstuff-app-instance-id', variable: 'APP_INSTANCE_ID'),
+                    string(credentialsId: 'okcomputerstuff-rds-host', variable: 'RDS_HOST'),
                     string(credentialsId: 'okcomputerstuff-rds-secret-arn', variable: 'RDS_SECRET_ARN'),
                     string(credentialsId: 'okcomputerstuff-app-secret-arn', variable: 'APP_SECRET_ARN')
                 ]) {
                     script {
                         if (!(env.APP_INSTANCE_ID ==~ /i-[0-9a-f]{8,17}/)) {
                             error('Configured APP_INSTANCE_ID must be a valid EC2 instance ID')
+                        }
+                        if (!(env.RDS_HOST.trim() ==~ /[A-Za-z0-9][A-Za-z0-9.-]*/)) {
+                            error('Configured RDS_HOST must be a valid DNS hostname')
+                        }
+                        if (!(env.RDS_PORT ==~ /[1-9][0-9]{0,4}/) || env.RDS_PORT.toInteger() > 65535) {
+                            error('Configured RDS_PORT must be between 1 and 65535')
                         }
                         def secretArns = [
                             RDS_SECRET_ARN: env.RDS_SECRET_ARN.trim(),
@@ -94,7 +102,7 @@ pipeline {
                         def command = """
                             echo ${shellQuote(encodedScript)} | base64 -d > /tmp/okcomputerstuff-deploy-app.sh
                             chmod 700 /tmp/okcomputerstuff-deploy-app.sh
-                            /tmp/okcomputerstuff-deploy-app.sh ${shellQuote(env.APP_REPO_URL)} ${shellQuote(env.APP_BRANCH)} ${shellQuote(params.APP_COMMIT)} ${shellQuote(secretArns.RDS_SECRET_ARN)} ${shellQuote(secretArns.APP_SECRET_ARN)}
+                            /tmp/okcomputerstuff-deploy-app.sh ${shellQuote(env.APP_REPO_URL)} ${shellQuote(env.APP_BRANCH)} ${shellQuote(params.APP_COMMIT)} ${shellQuote(secretArns.RDS_SECRET_ARN)} ${shellQuote(secretArns.APP_SECRET_ARN)} ${shellQuote(env.RDS_HOST.trim())} ${shellQuote(env.RDS_PORT)}
                         """.stripIndent().trim()
                         def request = [
                             DocumentName: 'AWS-RunShellScript',

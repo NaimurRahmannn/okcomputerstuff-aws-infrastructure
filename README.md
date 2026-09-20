@@ -30,7 +30,7 @@ git diff --cached
 - The S3 state bucket must have Block Public Access enabled, versioning enabled, server-side encryption enabled, and an IAM policy scoped to the two configured state keys.
 - Jenkins AWS credentials must use least privilege for the required Terraform and SSM operations. Do not use an account administrator credential.
 - Store the production Terraform variable file in Jenkins as a secret-file credential named `okcomputerstuff-prod-tfvars`; the infrastructure pipeline never expects it in Git.
-- Store the application instance ID and the two Secrets Manager ARNs as Jenkins string credentials named `okcomputerstuff-app-instance-id`, `okcomputerstuff-rds-secret-arn`, and `okcomputerstuff-app-secret-arn`; build users cannot override deployment targets.
+- Store the application instance ID, RDS endpoint, and the two Secrets Manager ARNs as Jenkins string credentials named `okcomputerstuff-app-instance-id`, `okcomputerstuff-rds-host`, `okcomputerstuff-rds-secret-arn`, and `okcomputerstuff-app-secret-arn`; build users cannot override deployment targets.
 - Direct SSH is disabled by default. If emergency SSH access is required, set `admin_cidr_blocks` locally to trusted `/32` addresses and remove them after use.
 - Jenkins port 8080 accepts traffic only from the Application Load Balancer security group. Public HTTP redirects to HTTPS.
 - Protect the application repository's `main` branch. Deployments require the full reviewed commit SHA and reject other repositories or branches.

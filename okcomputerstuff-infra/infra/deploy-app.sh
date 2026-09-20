@@ -7,6 +7,8 @@ APP_BRANCH="${2:-main}"
 APP_COMMIT="${3:?Reviewed application commit SHA is required}"
 RDS_SECRET_ARN="${4:?RDS secret ARN is required}"
 APP_SECRET_ARN="${5:?Application secret ARN is required}"
+RDS_HOST="${6:?RDS host is required}"
+RDS_PORT="${7:-3306}"
 
 EXPECTED_REPO_URL="https://github.com/NaimurRahmannn/okcomputerstuff.git"
 EXPECTED_BRANCH="main"
@@ -18,6 +20,16 @@ fi
 
 if [[ ! "$APP_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
   echo "APP_COMMIT must be a lowercase 40-character Git commit SHA" >&2
+  exit 1
+fi
+
+if [[ ! "$RDS_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]; then
+  echo "RDS_HOST must be a valid DNS hostname" >&2
+  exit 1
+fi
+
+if [[ ! "$RDS_PORT" =~ ^[0-9]+$ ]] || (( RDS_PORT < 1 || RDS_PORT > 65535 )); then
+  echo "RDS_PORT must be between 1 and 65535" >&2
   exit 1
 fi
 
@@ -79,6 +91,8 @@ chmod 600 "$TMP_DIR"/*.json
 
 RDS_SECRET_FILE="$TMP_DIR/rds-secret.json" \
 APP_SECRET_FILE="$TMP_DIR/app-secret.json" \
+RDS_HOST="$RDS_HOST" \
+RDS_PORT="$RDS_PORT" \
 ENV_FILE="$ENV_FILE" \
 python3 - <<'PY'
 import json
@@ -91,7 +105,7 @@ with open(os.environ["RDS_SECRET_FILE"], encoding="utf-8") as stream:
 with open(os.environ["APP_SECRET_FILE"], encoding="utf-8") as stream:
     app = json.load(stream)
 
-required_rds = ("username", "password", "host", "port")
+required_rds = ("username", "password")
 missing_rds = [key for key in required_rds if not rds.get(key)]
 if missing_rds:
     raise SystemExit(f"RDS secret is missing: {', '.join(missing_rds)}")
@@ -105,7 +119,7 @@ database_name = rds.get("dbname") or "okcomputerstuff"
 database_url = (
     "mysql+pymysql://"
     f"{quote_plus(str(rds['username']))}:{quote_plus(str(rds['password']))}"
-    f"@{rds['host']}:{rds['port']}/{database_name}"
+    f"@{os.environ['RDS_HOST']}:{os.environ['RDS_PORT']}/{database_name}"
 )
 
 values = {

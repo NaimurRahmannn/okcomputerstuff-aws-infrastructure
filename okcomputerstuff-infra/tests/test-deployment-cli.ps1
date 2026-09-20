@@ -28,5 +28,23 @@ if ($deployText -notmatch [regex]::Escape('AWS_CLI_BIN')) {
 if ($deployText -match [regex]::Escape('apt-get install -y awscli')) {
     throw 'deploy-app.sh must not install the distro awscli package.'
 }
+if ($pipelineText -notmatch [regex]::Escape("okcomputerstuff-rds-host")) {
+    throw 'Jenkinsfile.blog must bind the RDS endpoint credential.'
+}
+if ($pipelineText -notmatch [regex]::Escape('RDS_PORT')) {
+    throw 'Jenkinsfile.blog must pass the RDS port explicitly.'
+}
+if ($pipelineText -notmatch [regex]::Escape('shellQuote(env.RDS_HOST')) {
+    throw 'Jenkinsfile.blog must pass the RDS host to the deployment script.'
+}
+if ($deployText -notmatch [regex]::Escape('RDS_HOST="${6:?RDS host is required}"')) {
+    throw 'deploy-app.sh must accept the RDS host separately from the secret.'
+}
+if ($deployText -notmatch [regex]::Escape('RDS_PORT="${7:-3306}"')) {
+    throw 'deploy-app.sh must accept the RDS port separately from the secret.'
+}
+if ($deployText -match [regex]::Escape('required_rds = ("username", "password", "host", "port")')) {
+    throw 'deploy-app.sh must not require host and port in the RDS-managed secret.'
+}
 
 Write-Output 'deployment CLI regression checks passed'

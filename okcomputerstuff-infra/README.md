@@ -91,13 +91,16 @@ After applying Terraform, collect these outputs:
 
 ```powershell
 terraform output -raw app_instance_id
+terraform output -raw rds_endpoint
 terraform output -raw rds_master_secret_arn
 terraform output -raw app_secret_arn
 ```
 
-Store them as Jenkins string credentials named `okcomputerstuff-app-instance-id`,
-`okcomputerstuff-rds-secret-arn`, and `okcomputerstuff-app-secret-arn`. The only
-build parameter is the full reviewed commit SHA from the protected `main`
+Store the instance ID, RDS endpoint, and two secret ARNs as Jenkins string
+credentials named `okcomputerstuff-app-instance-id`, `okcomputerstuff-rds-host`,
+`okcomputerstuff-rds-secret-arn`, and `okcomputerstuff-app-secret-arn`. The RDS
+port is fixed to MySQL's `3306` in the reviewed pipeline. The only build
+parameter is the full reviewed commit SHA from the protected `main`
 branch. The repository URL, branch, deployment targets, and Jenkins AWS
 credential ID are fixed by reviewed configuration. The pipeline runs the blog tests,
 sends `infra/deploy-app.sh` to the private EC2 instance using Systems Manager,
