@@ -1,0 +1,15 @@
+bucket_name = "replace-with-private-terraform-state-bucket"
+domain_name = "jenkins.example.com"
+hosted_zone_name = "example.com"
+
+vpc_cidr             = "10.10.0.0/16"
+vpc_name             = "production-jenkins-vpc"
+cidr_public_subnet   = ["10.10.1.0/24", "10.10.2.0/24"]
+cidr_private_subnet  = ["10.10.11.0/24", "10.10.12.0/24"]
+availability_zone    = ["ap-southeast-1a", "ap-southeast-1b"]
+
+# Leave empty to disable direct SSH. If required temporarily, use trusted /32 CIDRs.
+admin_cidr_blocks = []
+
+public_key = "ssh-ed25519 REPLACE_WITH_PUBLIC_KEY operator@example"
+ec2_ami_id = "ami-REPLACE_WITH_APPROVED_AMI"

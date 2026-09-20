@@ -1,0 +1,69 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    parameters {
+        booleanParam(
+            name: 'APPLY',
+            defaultValue: false,
+            description: 'Apply the reviewed Terraform plan'
+        )
+    }
+
+    environment {
+        AWS_DEFAULT_REGION = 'ap-southeast-1'
+        TF_IN_AUTOMATION = 'true'
+    }
+
+    stages {
+        stage('Terraform Init') {
+            steps {
+                dir('infra') {
+                    sh 'terraform init -input=false'
+                }
+            }
+        }
+
+        stage('Terraform Format and Validate') {
+            steps {
+                dir('infra') {
+                    sh 'terraform fmt -check -recursive'
+                    sh 'terraform validate'
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                withCredentials([file(credentialsId: 'okcomputerstuff-prod-tfvars', variable: 'TFVARS_FILE')]) {
+                    dir('infra') {
+                    sh 'terraform plan -input=false -var-file="$TFVARS_FILE" -out=tfplan.tfplan'
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Apply') {
+            when {
+                expression {
+                    return params.APPLY
+                }
+            }
+            steps {
+                dir('infra') {
+                    sh 'terraform apply -input=false tfplan.tfplan'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f infra/tfplan.tfplan'
+        }
+    }
+}

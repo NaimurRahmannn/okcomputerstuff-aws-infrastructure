@@ -1,0 +1,11 @@
+# Kept for directory-level use; the root D:\aws/.gitignore is canonical.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+*.tfvars
+deploy-app.b64
+ssm-command.json

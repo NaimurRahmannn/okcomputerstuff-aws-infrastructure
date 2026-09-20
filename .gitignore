@@ -1,0 +1,33 @@
+# Terraform generated files and sensitive runtime state
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+**/tfplan
+crash.log
+crash.*.log
+
+# Environment-specific variables may contain credentials
+*.tfvars
+!*.tfvars.example
+
+# Local Python environments and secrets
+.venv/
+**/.venv/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.ppk
+
+# Editor and generated deployment files
+.vscode/
+**/deploy-app.b64
+**/ssm-command.json
+ssm-params.json
+
+# Nested repository metadata; D:\aws is the single repository
+**/.git/
+
+docs/

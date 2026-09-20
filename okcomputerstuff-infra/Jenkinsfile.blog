@@ -1,0 +1,129 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    parameters {
+        string(
+            name: 'APP_COMMIT',
+            defaultValue: '',
+            description: 'Reviewed 40-character commit SHA from the protected main branch'
+        )
+    }
+
+    environment {
+        AWS_DEFAULT_REGION = 'ap-southeast-1'
+        AWS_REGION = 'ap-southeast-1'
+        AWS_CREDENTIALS_ID = 'okcomputerstuff-aws'
+        APP_REPO_URL = 'https://github.com/NaimurRahmannn/okcomputerstuff.git'
+        APP_BRANCH = 'main'
+    }
+
+    stages {
+        stage('Validate parameters') {
+            steps {
+                script {
+                    if (!(params.APP_COMMIT ==~ /[0-9a-f]{40}/)) {
+                        error('APP_COMMIT must be a lowercase 40-character Git commit SHA')
+                    }
+                }
+            }
+        }
+
+        stage('Checkout blog') {
+            steps {
+                dir('app') {
+                    deleteDir()
+                    git branch: env.APP_BRANCH, url: env.APP_REPO_URL
+                    sh '''
+                        set -eu
+                        git fetch --no-tags origin "$APP_BRANCH"
+                        test "$(git rev-parse "origin/$APP_BRANCH")" = "$APP_COMMIT"
+                        git checkout --detach "$APP_COMMIT"
+                        test "$(git rev-parse HEAD)" = "$APP_COMMIT"
+                    '''
+                }
+            }
+        }
+
+        stage('Test blog') {
+            steps {
+                dir('app') {
+                    sh '''
+                        python3 -m venv .ci-venv
+                        .ci-venv/bin/pip install --upgrade pip
+                        .ci-venv/bin/pip install -r backend/requirements.txt
+                        .ci-venv/bin/pytest backend/tests -q
+                        npm test --prefix frontend
+                        npm run build --prefix frontend
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy through SSM') {
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: env.AWS_CREDENTIALS_ID],
+                    string(credentialsId: 'okcomputerstuff-app-instance-id', variable: 'APP_INSTANCE_ID'),
+                    string(credentialsId: 'okcomputerstuff-rds-secret-arn', variable: 'RDS_SECRET_ARN'),
+                    string(credentialsId: 'okcomputerstuff-app-secret-arn', variable: 'APP_SECRET_ARN')
+                ]) {
+                    script {
+                        if (!(env.APP_INSTANCE_ID ==~ /i-[0-9a-f]{8,17}/)) {
+                            error('Configured APP_INSTANCE_ID must be a valid EC2 instance ID')
+                        }
+                        [RDS_SECRET_ARN: env.RDS_SECRET_ARN, APP_SECRET_ARN: env.APP_SECRET_ARN].each { name, value ->
+                            if (!(value ==~ /arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:[A-Za-z0-9/_+=.@-]+/)) {
+                                error("Configured ${name} must be a valid Secrets Manager ARN")
+                            }
+                        }
+
+                        def shellQuote = { value ->
+                            "'${value.toString().replace("'", "'\\\"'\\\"'")}'"
+                        }
+                        sh 'base64 -w 0 infra/deploy-app.sh > deploy-app.b64'
+                        def encodedScript = readFile('deploy-app.b64').trim()
+                        def command = """
+                            echo ${shellQuote(encodedScript)} | base64 -d > /tmp/okcomputerstuff-deploy-app.sh
+                            chmod 700 /tmp/okcomputerstuff-deploy-app.sh
+                            /tmp/okcomputerstuff-deploy-app.sh ${shellQuote(env.APP_REPO_URL)} ${shellQuote(env.APP_BRANCH)} ${shellQuote(params.APP_COMMIT)} ${shellQuote(env.RDS_SECRET_ARN)} ${shellQuote(env.APP_SECRET_ARN)}
+                        """.stripIndent().trim()
+                        def request = [
+                            DocumentName: 'AWS-RunShellScript',
+                            Comment: 'Deploy okcomputerstuff blog application',
+                            InstanceIds: [env.APP_INSTANCE_ID],
+                            Parameters: [commands: [command]]
+                        ]
+                        writeFile file: 'ssm-command.json', text: groovy.json.JsonOutput.toJson(request)
+
+                        sh """
+                            set -eu
+                            command_id=\$(aws ssm send-command \\
+                              --cli-input-json file://ssm-command.json \\
+                              --query 'Command.CommandId' \\
+                              --output text)
+                            aws ssm wait command-executed \\
+                              --command-id "\$command_id" \\
+                              --instance-id ${shellQuote(env.APP_INSTANCE_ID)}
+                            aws ssm get-command-invocation \\
+                              --command-id "\$command_id" \\
+                              --instance-id ${shellQuote(env.APP_INSTANCE_ID)} \\
+                              --query 'StandardOutputContent' \\
+                              --output text
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            deleteDir()
+        }
+    }
+}
