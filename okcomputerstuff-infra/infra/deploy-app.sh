@@ -35,7 +35,17 @@ trap cleanup EXIT
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y awscli git python3-venv python3-pip
+apt-get install -y git python3-venv python3-pip unzip wget
+
+AWS_CLI_ROOT=/opt/aws-cli
+AWS_CLI_BIN="$AWS_CLI_ROOT/v2/current/bin/aws"
+wget -q "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -O "$TMP_DIR/awscliv2.zip"
+unzip -q "$TMP_DIR/awscliv2.zip" -d "$TMP_DIR"
+"$TMP_DIR/aws/install" \
+  --install-dir "$AWS_CLI_ROOT" \
+  --bin-dir "$TMP_DIR/aws-bin" \
+  --update >/dev/null
+"$AWS_CLI_BIN" --version
 
 mkdir -p "$RELEASE_ROOT" "$FRONTEND_ROOT" /etc/okcomputerstuff
 git clone --depth 1 --branch "$APP_BRANCH" "$APP_REPO_URL" "$TMP_DIR/source"
@@ -57,11 +67,11 @@ python3 -m venv "$APP_ROOT/.venv"
 rm -rf "$FRONTEND_ROOT"/*
 cp -a "$TMP_DIR/source/frontend"/. "$FRONTEND_ROOT"/
 
-aws secretsmanager get-secret-value \
+"$AWS_CLI_BIN" secretsmanager get-secret-value \
   --secret-id "$RDS_SECRET_ARN" \
   --query SecretString \
   --output text > "$TMP_DIR/rds-secret.json"
-aws secretsmanager get-secret-value \
+"$AWS_CLI_BIN" secretsmanager get-secret-value \
   --secret-id "$APP_SECRET_ARN" \
   --query SecretString \
   --output text > "$TMP_DIR/app-secret.json"
