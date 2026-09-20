@@ -81,7 +81,7 @@ pipeline {
                             APP_SECRET_ARN: env.APP_SECRET_ARN.trim()
                         ]
                         secretArns.each { name, value ->
-                            if (!(value ==~ 'arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:[A-Za-z0-9/_+=.@-]+')) {
+                            if (!(value ==~ 'arn:aws:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:[A-Za-z0-9/_+=.!@-]+')) {
                                 error("Configured ${name} must be a valid Secrets Manager ARN")
                             }
                         }
