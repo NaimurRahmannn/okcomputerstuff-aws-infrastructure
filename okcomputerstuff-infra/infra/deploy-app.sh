@@ -109,6 +109,8 @@ cp -a "$TMP_DIR/source/backend" "$RELEASE_DIR/backend"
 python3 -m venv "$APP_ROOT/.venv"
 "$APP_ROOT/.venv/bin/pip" install --upgrade pip
 "$APP_ROOT/.venv/bin/pip" install -r "$RELEASE_DIR/backend/requirements.txt"
+chown -R www-data:www-data "$APP_ROOT/.venv"
+chmod -R a+rX "$APP_ROOT/.venv"
 
 rm -rf "$FRONTEND_ROOT"/*
 cp -a "$TMP_DIR/source/frontend"/. "$FRONTEND_ROOT"/
