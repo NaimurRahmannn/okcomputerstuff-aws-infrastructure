@@ -9,6 +9,7 @@ RDS_SECRET_ARN="${4:?RDS secret ARN is required}"
 APP_SECRET_ARN="${5:?Application secret ARN is required}"
 RDS_HOST="${6:?RDS host is required}"
 RDS_PORT="${7:-3306}"
+APP_DOMAIN="${8:-okcomputerstuff.tech}"
 
 EXPECTED_REPO_URL="https://github.com/NaimurRahmannn/okcomputerstuff.git"
 EXPECTED_BRANCH="main"
@@ -33,6 +34,11 @@ if [[ ! "$RDS_PORT" =~ ^[0-9]+$ ]] || (( RDS_PORT < 1 || RDS_PORT > 65535 )); th
   exit 1
 fi
 
+if [[ ! "$APP_DOMAIN" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]]; then
+  echo "APP_DOMAIN must be a valid DNS hostname" >&2
+  exit 1
+fi
+
 APP_ROOT=/opt/okcomputerstuff
 RELEASE_ROOT="$APP_ROOT/releases"
 RELEASE_DIR="$RELEASE_ROOT/$(date -u +%Y%m%d%H%M%S)"
@@ -47,7 +53,9 @@ trap cleanup EXIT
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y git python3-venv python3-pip unzip wget
+apt-get install -y apache2 git python3-venv python3-pip unzip wget
+
+a2enmod proxy proxy_http rewrite headers
 
 AWS_CLI_ROOT=/opt/aws-cli
 AWS_CLI_BIN="$AWS_CLI_ROOT/v2/current/bin/aws"
@@ -60,6 +68,32 @@ unzip -q "$TMP_DIR/awscliv2.zip" -d "$TMP_DIR"
 "$AWS_CLI_BIN" --version
 
 mkdir -p "$RELEASE_ROOT" "$FRONTEND_ROOT" /etc/okcomputerstuff
+chmod 755 "$APP_ROOT" "$RELEASE_ROOT" "$FRONTEND_ROOT"
+
+cat >/etc/apache2/sites-available/okcomputerstuff.conf <<APACHE
+<VirtualHost *:80>
+    ServerName ${APP_DOMAIN}
+    ServerAlias www.${APP_DOMAIN}
+    DocumentRoot /var/www/okcomputerstuff/frontend
+
+    ProxyPreserveHost On
+    ProxyPass /api http://127.0.0.1:8000/api
+    ProxyPassReverse /api http://127.0.0.1:8000/api
+
+    <Directory /var/www/okcomputerstuff/frontend>
+        Options -Indexes
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog \${APACHE_LOG_DIR}/okcomputerstuff-error.log
+    CustomLog \${APACHE_LOG_DIR}/okcomputerstuff-access.log combined
+</VirtualHost>
+APACHE
+
+a2dissite 000-default.conf || true
+a2ensite okcomputerstuff.conf
+
 git clone --depth 1 --branch "$APP_BRANCH" "$APP_REPO_URL" "$TMP_DIR/source"
 git -C "$TMP_DIR/source" fetch --depth 1 origin "$APP_BRANCH"
 test "$(git -C "$TMP_DIR/source" rev-parse "origin/$APP_BRANCH")" = "$APP_COMMIT"
@@ -138,6 +172,7 @@ PY
 chmod 600 "$ENV_FILE"
 
 chown -R www-data:www-data "$RELEASE_ROOT" "$FRONTEND_ROOT"
+chmod 755 "$APP_ROOT" "$RELEASE_ROOT" "$RELEASE_DIR" "$RELEASE_DIR/backend"
 
 set -a
 # EnvironmentFile uses shell-compatible values, so sourcing it here matches the
@@ -171,9 +206,12 @@ WantedBy=multi-user.target
 SERVICE
 
 systemctl daemon-reload
-systemctl enable okcomputerstuff.service
+systemctl enable apache2 okcomputerstuff.service
+systemctl restart apache2
 systemctl restart okcomputerstuff.service
 systemctl reload apache2
+systemctl is-active --quiet apache2
+systemctl is-active --quiet okcomputerstuff.service
 
 find "$RELEASE_ROOT" -mindepth 1 -maxdepth 1 -type d \
   -not -path "$RELEASE_DIR" \

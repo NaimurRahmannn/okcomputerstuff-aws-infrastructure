@@ -52,5 +52,26 @@ if ($deployText -notmatch [regex]::Escape('/etc/systemd/system/okcomputerstuff.s
 if ($deployText -notmatch [regex]::Escape('ExecStart=/opt/okcomputerstuff/.venv/bin/gunicorn')) {
     throw 'deploy-app.sh systemd unit must start the application Gunicorn service.'
 }
+if ($deployText -notmatch [regex]::Escape('APP_DOMAIN="${8:-okcomputerstuff.tech}"')) {
+    throw 'deploy-app.sh must accept the application domain separately.'
+}
+if ($pipelineText -notmatch [regex]::Escape("APP_DOMAIN = 'okcomputerstuff.tech'")) {
+    throw 'Jenkinsfile.blog must pin the reviewed application domain.'
+}
+if ($pipelineText -notmatch [regex]::Escape('shellQuote(env.APP_DOMAIN)')) {
+    throw 'Jenkinsfile.blog must pass the application domain to deployment.'
+}
+if ($deployText -notmatch [regex]::Escape('apt-get install -y apache2')) {
+    throw 'deploy-app.sh must install Apache for self-healing hosts.'
+}
+if ($deployText -notmatch [regex]::Escape('a2enmod proxy proxy_http rewrite headers')) {
+    throw 'deploy-app.sh must enable the required Apache modules.'
+}
+if ($deployText -notmatch [regex]::Escape('/etc/apache2/sites-available/okcomputerstuff.conf')) {
+    throw 'deploy-app.sh must configure the application Apache site.'
+}
+if ($deployText -notmatch [regex]::Escape('chmod 755 "$APP_ROOT" "$RELEASE_ROOT"')) {
+    throw 'deploy-app.sh must make the application path traversable by www-data.'
+}
 
 Write-Output 'deployment CLI regression checks passed'
