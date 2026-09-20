@@ -46,5 +46,11 @@ if ($deployText -notmatch [regex]::Escape('RDS_PORT="${7:-3306}"')) {
 if ($deployText -match [regex]::Escape('required_rds = ("username", "password", "host", "port")')) {
     throw 'deploy-app.sh must not require host and port in the RDS-managed secret.'
 }
+if ($deployText -notmatch [regex]::Escape('/etc/systemd/system/okcomputerstuff.service')) {
+    throw 'deploy-app.sh must install the application systemd unit.'
+}
+if ($deployText -notmatch [regex]::Escape('ExecStart=/opt/okcomputerstuff/.venv/bin/gunicorn')) {
+    throw 'deploy-app.sh systemd unit must start the application Gunicorn service.'
+}
 
 Write-Output 'deployment CLI regression checks passed'

@@ -152,6 +152,24 @@ cd "$RELEASE_DIR/backend"
 
 rm -rf "$APP_ROOT/backend"
 ln -s "$RELEASE_DIR/backend" "$APP_ROOT/backend"
+
+cat >/etc/systemd/system/okcomputerstuff.service <<'SERVICE'
+[Unit]
+Description=okcomputerstuff Flask API
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/okcomputerstuff/backend
+EnvironmentFile=-/etc/okcomputerstuff/backend.env
+ExecStart=/opt/okcomputerstuff/.venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 run:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
 systemctl daemon-reload
 systemctl enable okcomputerstuff.service
 systemctl restart okcomputerstuff.service
