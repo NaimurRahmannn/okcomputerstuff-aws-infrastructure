@@ -206,7 +206,7 @@ WantedBy=multi-user.target
 SERVICE
 
 systemctl daemon-reload
-systemctl enable apache2 okcomputerstuff.service
+systemctl enable okcomputerstuff.service
 systemctl restart apache2
 systemctl restart okcomputerstuff.service
 systemctl reload apache2
