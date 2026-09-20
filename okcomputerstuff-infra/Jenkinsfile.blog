@@ -96,24 +96,25 @@ pipeline {
                             chmod 700 /tmp/okcomputerstuff-deploy-app.sh
                             /tmp/okcomputerstuff-deploy-app.sh ${shellQuote(env.APP_REPO_URL)} ${shellQuote(env.APP_BRANCH)} ${shellQuote(params.APP_COMMIT)} ${shellQuote(secretArns.RDS_SECRET_ARN)} ${shellQuote(secretArns.APP_SECRET_ARN)}
                         """.stripIndent().trim()
-                        def request = [
-                            DocumentName: 'AWS-RunShellScript',
-                            Comment: 'Deploy okcomputerstuff blog application',
-                            InstanceIds: [env.APP_INSTANCE_ID],
-                            Parameters: [commands: [command]]
-                        ]
-                        writeFile file: 'ssm-command.json', text: groovy.json.JsonOutput.toJson(request)
+                                                writeFile file: 'ssm-parameters.json', text: groovy.json.JsonOutput.toJson([commands: [command]])
 
                         sh """
                             set -eu
+                                                        python3 -m json.tool ssm-parameters.json >/dev/null
                             command_id=\$(aws ssm send-command \\
-                              --cli-input-json file://ssm-command.json \\
+                                                            --region '${AWS_REGION}' \\
+                                                            --document-name AWS-RunShellScript \\
+                                                            --comment 'Deploy okcomputerstuff blog application' \\
+                                                            --instance-ids ${shellQuote(env.APP_INSTANCE_ID)} \\
+                                                            --parameters file://ssm-parameters.json \\
                               --query 'Command.CommandId' \\
                               --output text)
                             aws ssm wait command-executed \\
+                                                            --region '${AWS_REGION}' \\
                               --command-id "\$command_id" \\
                               --instance-id ${shellQuote(env.APP_INSTANCE_ID)}
                             aws ssm get-command-invocation \\
+                                                            --region '${AWS_REGION}' \\
                               --command-id "\$command_id" \\
                               --instance-id ${shellQuote(env.APP_INSTANCE_ID)} \\
                               --query 'StandardOutputContent' \\
