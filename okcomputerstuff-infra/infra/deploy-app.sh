@@ -114,6 +114,8 @@ chmod -R a+rX "$APP_ROOT/.venv"
 
 rm -rf "$FRONTEND_ROOT"/*
 cp -a "$TMP_DIR/source/frontend"/. "$FRONTEND_ROOT"/
+chmod 755 /var/www /var/www/okcomputerstuff "$FRONTEND_ROOT"
+chmod -R a+rX "$FRONTEND_ROOT"
 
 "$AWS_CLI_BIN" secretsmanager get-secret-value \
   --secret-id "$RDS_SECRET_ARN" \
