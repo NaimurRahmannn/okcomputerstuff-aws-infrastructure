@@ -34,7 +34,7 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                dir('infra') {
+                dir('okcomputerstuff-infra/infra') {
                     sh 'terraform init -input=false'
                 }
             }
@@ -42,7 +42,7 @@ pipeline {
 
         stage('Terraform Format and Validate') {
             steps {
-                dir('infra') {
+                dir('okcomputerstuff-infra/infra') {
                     sh 'terraform fmt -check -recursive'
                     sh 'terraform validate'
                 }
@@ -52,8 +52,8 @@ pipeline {
         stage('Terraform Plan') {
             steps {
                 withCredentials([file(credentialsId: 'okcomputerstuff-prod-tfvars', variable: 'TFVARS_FILE')]) {
-                    dir('infra') {
-                    sh 'terraform plan -input=false -var-file="$TFVARS_FILE" -out=tfplan.tfplan'
+                    dir('okcomputerstuff-infra/infra') {
+                        sh 'terraform plan -input=false -var-file="$TFVARS_FILE" -out=tfplan.tfplan'
                     }
                 }
             }
@@ -66,7 +66,7 @@ pipeline {
                 }
             }
             steps {
-                dir('infra') {
+                dir('okcomputerstuff-infra/infra') {
                     sh 'terraform apply -input=false tfplan.tfplan'
                 }
             }
@@ -75,7 +75,7 @@ pipeline {
 
     post {
         always {
-            sh 'rm -f infra/tfplan.tfplan'
+            sh 'rm -f okcomputerstuff-infra/infra/tfplan.tfplan'
         }
     }
 }
